@@ -29,12 +29,10 @@ jobs:
           # session_id: usamos el ID de ejecución del workflow para que sea único
           JSON_PAYLOAD=$(jq -n \
             --arg uid "${{ github.actor }}" \
-            --arg sid "${{ github.run_id }}" \
             --arg msg "$PROMPT" \
             '{
               "input": {
                 "user_id": $uid,
-                "session_id": $sid,
                 "message": $msg
               }
             }')
