@@ -24,7 +24,33 @@ jobs:
       - name: Invoke AI Agent
         id: agent_call
         run: |
-          # 1. Definir el prompt
+          # 1. Configuración de Variables
+          LOCATION="us-central1"
+          PROJECT="gemini-enterprise-491518"
+          AGENT_ID="6857918454985392128"
+          USER_ID="${{ github.actor }}"
+          BASE_URL="https://$LOCATION-aiplatform.googleapis.com/v1/projects/$PROJECT/locations/$LOCATION/reasoningEngines/$AGENT_ID"
+
+          echo "### 1. CREANDO SESIÓN ###"
+          SESSION_RESPONSE=$(curl -s -X POST \
+            -H "Authorization: Bearer $(gcloud auth print-access-token)" \
+            -H "Content-Type: application/json" \
+            "$BASE_URL:query" \
+            -d "{
+              \"class_method\": \"async_create_session\",
+              \"input\": {\"user_id\": \"$USER_ID\"}
+            }")
+          
+          SESSION_ID=$(echo "$SESSION_RESPONSE" | jq -r '.output.id // empty')
+          
+          if [ -z "$SESSION_ID" ] || [ "$SESSION_ID" == "null" ]; then
+            echo "Error: No se pudo obtener Session ID. Respuesta: $SESSION_RESPONSE"
+            exit 1
+          fi
+          echo "Sesión exitosa: $SESSION_ID"
+          
+          # 2. Definir el prompt
+          echo "### 2. EJECUTANDO STREAM QUERY ###"
           PROMPT="revisar el PR #${{ github.event.pull_request.number }} de github.com/${{ github.repository }}"
 
           # 2. Crear Sesion
@@ -37,28 +63,28 @@ jobs:
               \"input\": {\"user_id\": \"${{ github.actor }}"\"}
             }")
           
-          # Extraemos el ID de la sesión
-          SESSION_ID=$(echo $SESSION_RESPONSE | jq -r '.output.id')
+          echo "### 2. EJECUTANDO STREAM QUERY ###"
+          PROMPT="revisar el PR #${{ github.event.pull_request.number }} de github.com/${{ github.repository }}"
           
-          if [ "$SESSION_ID" == "null" ] || [ -z "$SESSION_ID" ]; then
-            echo "Error al crear sesión: $SESSION_RESPONSE"
-            exit 1
-          fi
-          
-          echo "Sesión creada con éxito: $SESSION_ID"
-          
-          # 3. Construir el JSON con la estructura de objeto anidado
           JSON_PAYLOAD=$(jq -n \
-            --arg uid "${{ github.actor }}" \
+            --arg uid "$USER_ID" \
+            --arg sid "$SESSION_ID" \
             --arg msg "$PROMPT" \
             '{
               "class_method": "async_stream_query",
               "input": {
                 "user_id": $uid,
-                "session_id": $SESSION_ID
+                "session_id": $sid,
                 "message": $msg
               }
             }')
+
+          # Guardamos el stream en un archivo para evitar errores de escape en variables
+          curl -s -X POST \
+            -H "Authorization: Bearer $(gcloud auth print-access-token)" \
+            -H "Content-Type: application/json" \
+            "$BASE_URL:streamQuery?alt=sse" \
+            -d "$JSON_PAYLOAD" > raw_stream.txt
           
           # 3. Llamada al API
           RESPONSE=$(curl -s -X POST \
