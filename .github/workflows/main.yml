@@ -1,49 +1,36 @@
-name: AI Code Review
+name: AI Code Review Trigger
 on:
   pull_request:
     types: [opened, synchronize]
 
 jobs:
-  review:
+  call-agent:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      pull-requests: write
-      id-token: write # Necesario para leer el WIF
+      id-token: write # Para la autenticación del WIF
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
       - name: Google Auth
         uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: 'projects/857328543354/locations/global/workloadIdentityPools/github-pool/providers/github-provider'
           service_account: 'github-agent-reviewer@gemini-enterprise-491518.iam.gserviceaccount.com'
 
-      - name: Get PR Diff
-        id: diff
+      - name: Invoke Agent
         run: |
-          git diff origin/${{ github.base_ref }}...origin/${{ github.head_ref }} > pr_diff.txt
-
-      - name: Call Agent Engine
-        id: agent
-        run: |
-          # https://us-central1-aiplatform.googleapis.com/v1/projects/gemini-enterprise-491518/locations/us-central1/reasoningEngines/6857918454985392128:query
+          # Construimos el comando dinámico
+          # github.event.pull_request.number -> Ejemplo: 1
+          # github.repository -> Ejemplo: owner/repo
           
-          RESPONSE=$(curl -X POST \
+          PROMPT="revisar el PR #${{ github.event.pull_request.number }} de github.com/${{ github.repository }}"
+          
+          echo "Enviando comando: $PROMPT"
+
+          curl -X POST \
             -H "Authorization: Bearer $(gcloud auth print-access-token)" \
             -H "Content-Type: application/json" \
-            -d "{'instances': [{'content': '$(cat pr_diff.txt)'}]}" \
-            https://us-central1-aiplatform.googleapis.com/v1/projects/${{ secrets.GCP_PROJECT_ID }}/locations/us-central1/reasoningEngines/${{ secrets.AGENT_ID }}:query)
-          
-          echo "REVIEW_RESULT=$RESPONSE" >> $GITHUB_OUTPUT
-
-      - name: Post Comment to PR
-        uses: mshick/add-pr-comment@v2
-        with:
-          message: |
-            ### 🤖 AI Code Reviewer
-            ${{ steps.agent.outputs.REVIEW_RESULT }}
+            -d "{
+              \"query\": \"$PROMPT\"
+            }" \
+            https://us-central1-aiplatform.googleapis.com/v1/projects/${{ secrets.GCP_PROJECT_ID }}/locations/us-central1/reasoningEngines/${{ secrets.AGENT_ID }}:query
