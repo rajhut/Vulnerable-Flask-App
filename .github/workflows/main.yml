@@ -29,7 +29,7 @@ jobs:
             -H "Authorization: Bearer $(gcloud auth print-access-token)" \
             -H "Content-Type: application/json" \
             -d "{\"query\": \"$PROMPT\"}" \
-            https://us-central1-aiplatform.googleapis.com/v1/projects/${{ secrets.GCP_PROJECT_ID }}/locations/us-central1/reasoningEngines/${{ secrets.AGENT_ID }}:query
+            https://us-central1-aiplatform.googleapis.com/v1/projects/gemini-enterprise-491518/locations/us-central1/reasoningEngines/6857918454985392128:query
 
           # 3. Extraer el texto de la respuesta usando jq
           # Normalmente la estructura es .answer
