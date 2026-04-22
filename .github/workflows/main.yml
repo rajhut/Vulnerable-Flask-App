@@ -72,17 +72,19 @@ jobs:
             "$BASE_URL:streamQuery?alt=sse" \
             -d "$JSON_PAYLOAD" > raw_stream.txt
           
-          # 3. PROCESAR SSE (Server-Sent Events)
-          # Filtramos las líneas que empiezan con 'data:', quitamos el prefijo y unimos el contenido
-          RESULT=$(grep "data:" raw_stream.txt | sed 's/^data: //g' | jq -rj '.output // empty')
+          # 3. PROCESAR SSE (Estructura ADK / Content Parts)
+          # Buscamos en .content.parts[].text y unimos todo
+          RESULT=$(grep "data:" raw_stream.txt | sed 's/^data: //g' | jq -rj '.content.parts[]? | .text // empty')
 
+          # Si el resultado es muy corto o solo dice "Voy a revisar", 
+          # es que el stream se cortó antes de la respuesta final.
           if [ -z "$RESULT" ]; then
-            echo "Error: El stream no devolvió contenido. Contenido raw:"
+            echo "Error: No se encontró texto en las partes. Respuesta raw:"
             cat raw_stream.txt
-            RESULT="El agente no devolvió una respuesta válida. Revisa los logs de la ejecución."
+            RESULT="Error al procesar la respuesta del agente. Revisa los logs."
           fi
 
-          # 4. EXPORTAR A GITHUB_OUTPUT (Método multilínea seguro)
+          # 4. EXPORTAR A GITHUB_OUTPUT
           echo "REVIEW_TEXT<<EOF" >> $GITHUB_OUTPUT
           echo "$RESULT" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
