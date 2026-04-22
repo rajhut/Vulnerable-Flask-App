@@ -49,20 +49,6 @@ jobs:
           fi
           echo "Sesión exitosa: $SESSION_ID"
           
-          # 2. Definir el prompt
-          echo "### 2. EJECUTANDO STREAM QUERY ###"
-          PROMPT="revisar el PR #${{ github.event.pull_request.number }} de github.com/${{ github.repository }}"
-
-          # 2. Crear Sesion
-          SESSION_RESPONSE=$(curl -s -X POST \
-            -H "Authorization: Bearer $(gcloud auth print-access-token)" \
-            -H "Content-Type: application/json" \
-            $BASE_URL:query \
-            -d "{
-              \"class_method\": \"async_create_session\",
-              \"input\": {\"user_id\": \"${{ github.actor }}"\"}
-            }")
-          
           echo "### 2. EJECUTANDO STREAM QUERY ###"
           PROMPT="revisar el PR #${{ github.event.pull_request.number }} de github.com/${{ github.repository }}"
           
@@ -86,20 +72,17 @@ jobs:
             "$BASE_URL:streamQuery?alt=sse" \
             -d "$JSON_PAYLOAD" > raw_stream.txt
           
-          # 3. Llamada al API
-          RESPONSE=$(curl -s -X POST \
-            -H "Authorization: Bearer $(gcloud auth print-access-token)" \
-            -H "Content-Type: application/json" \
-            "https://us-central1-aiplatform.googleapis.com/v1/projects/gemini-enterprise-491518/locations/us-central1/reasoningEngines/6857918454985392128:streamQuery?alt=sse" \
-            -d "$JSON_PAYLOAD")
+          # 3. PROCESAR SSE (Server-Sent Events)
+          # Filtramos las líneas que empiezan con 'data:', quitamos el prefijo y unimos el contenido
+          RESULT=$(grep "data:" raw_stream.txt | sed 's/^data: //g' | jq -rj '.output // empty')
 
-          echo "RAW RESPONSE: $RESPONSE"
+          if [ -z "$RESULT" ]; then
+            echo "Error: El stream no devolvió contenido. Contenido raw:"
+            cat raw_stream.txt
+            RESULT="El agente no devolvió una respuesta válida. Revisa los logs de la ejecución."
+          fi
 
-          # 4. Extraer el resultado
-          # Normalmente la respuesta viene en .output.content o simplemente .output
-          RESULT=$(echo $RESPONSE | jq -r '.output // .answer // "Error: Estructura de respuesta no reconocida."')
-
-          # 5. Guardar para el siguiente paso
+          # 4. EXPORTAR A GITHUB_OUTPUT (Método multilínea seguro)
           echo "REVIEW_TEXT<<EOF" >> $GITHUB_OUTPUT
           echo "$RESULT" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
