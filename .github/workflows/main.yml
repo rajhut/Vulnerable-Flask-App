@@ -12,6 +12,9 @@ jobs:
       id-token: write # Para la autenticación del WIF
 
     steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        
       - name: Google Auth
         uses: google-github-actions/auth@v2
         with:
@@ -62,7 +65,7 @@ jobs:
             -H "Authorization: Bearer $(gcloud auth print-access-token)" \
             -H "Content-Type: application/json" \
             "https://us-central1-aiplatform.googleapis.com/v1/projects/gemini-enterprise-491518/locations/us-central1/reasoningEngines/6857918454985392128:streamQuery?alt=sse" \
-            -d "$JSON_PAYLOAD" \)
+            -d "$JSON_PAYLOAD")
 
           echo "RAW RESPONSE: $RESPONSE"
 
