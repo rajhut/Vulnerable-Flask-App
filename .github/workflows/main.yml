@@ -75,7 +75,7 @@ jobs:
           # 3. PROCESAMIENTO RECURSIVO (La clave)
           # '.. | .text?' busca la palabra 'text' en cualquier nivel del JSON.
           # -j une todo sin espacios extra.
-          RESULT=$(sed 's/^data: //g' raw_stream.txt | jq -rj '.. | .text? // empty')
+          RESULT=$(sed 's/^data: //g' raw_stream.txt | jq -rj 'select(.content.role == "model") | .content.parts[]?.text // empty')
 
           if [ -z "$RESULT" ]; then
             echo "Log de error (Raw):"
