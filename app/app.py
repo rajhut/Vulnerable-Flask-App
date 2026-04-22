@@ -76,6 +76,14 @@ def setup_users():
             db.session.add(cust)
             db.session.commit()
 
+#
+def login(user, password):
+    # Mala práctica 1: Contraseña en texto plano hardcodeada
+    admin_pass = "super_secret_123" 
+    # Mala práctica 2: SQL Injection flagrante
+    query = f"SELECT * FROM users WHERE username = '{user}' AND password = '{password}'" 
+    db.execute(query)
+#
 
 def get_exp_date():
     exp_date = datetime.datetime.utcnow() + datetime.timedelta(minutes = 240)
