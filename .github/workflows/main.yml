@@ -23,16 +23,36 @@ jobs:
         run: |
           # 1. Definir el prompt
           PROMPT="revisar el PR #${{ github.event.pull_request.number }} de github.com/${{ github.repository }}"
+
+          # 2. Crear Sesion
+          SESSION_RESPONSE=$(curl -s -X POST \
+            -H "Authorization: Bearer $(gcloud auth print-access-token)" \
+            -H "Content-Type: application/json" \
+            $BASE_URL:query \
+            -d "{
+              \"class_method\": \"async_create_session\",
+              \"input\": {\"user_id\": \"${{ github.actor }}"\"}
+            }")
           
-          # 2. Construir el JSON con la estructura de objeto anidado
-          # user_id: usamos el usuario que disparó el PR
-          # session_id: usamos el ID de ejecución del workflow para que sea único
+          # Extraemos el ID de la sesión
+          SESSION_ID=$(echo $SESSION_RESPONSE | jq -r '.output.id')
+          
+          if [ "$SESSION_ID" == "null" ] || [ -z "$SESSION_ID" ]; then
+            echo "Error al crear sesión: $SESSION_RESPONSE"
+            exit 1
+          fi
+          
+          echo "Sesión creada con éxito: $SESSION_ID"
+          
+          # 3. Construir el JSON con la estructura de objeto anidado
           JSON_PAYLOAD=$(jq -n \
             --arg uid "${{ github.actor }}" \
             --arg msg "$PROMPT" \
             '{
+              "class_method": "async_stream_query",
               "input": {
                 "user_id": $uid,
+                "session_id": $SESSION_ID
                 "message": $msg
               }
             }')
@@ -41,8 +61,8 @@ jobs:
           RESPONSE=$(curl -s -X POST \
             -H "Authorization: Bearer $(gcloud auth print-access-token)" \
             -H "Content-Type: application/json" \
-            -d "$JSON_PAYLOAD" \
-            https://us-central1-aiplatform.googleapis.com/v1/projects/gemini-enterprise-491518/locations/us-central1/reasoningEngines/6857918454985392128:query)
+            "https://us-central1-aiplatform.googleapis.com/v1/projects/gemini-enterprise-491518/locations/us-central1/reasoningEngines/6857918454985392128:streamQuery?alt=sse" \
+            -d "$JSON_PAYLOAD" \)
 
           echo "RAW RESPONSE: $RESPONSE"
 
