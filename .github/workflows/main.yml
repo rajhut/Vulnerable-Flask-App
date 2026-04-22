@@ -72,16 +72,15 @@ jobs:
             "$BASE_URL:streamQuery?alt=sse" \
             -d "$JSON_PAYLOAD" > raw_stream.txt
           
-          # 3. PROCESAR SSE (Estructura ADK / Content Parts)
-          # Buscamos en .content.parts[].text y unimos todo
-          RESULT=$(grep "data:" raw_stream.txt | sed 's/^data: //g' | jq -rj '.content.parts[]? | .text // empty')
+          # 3. PROCESAMIENTO RECURSIVO (La clave)
+          # '.. | .text?' busca la palabra 'text' en cualquier nivel del JSON.
+          # -j une todo sin espacios extra.
+          RESULT=$(sed 's/^data: //g' raw_stream.txt | jq -rj '.. | .text? // empty')
 
-          # Si el resultado es muy corto o solo dice "Voy a revisar", 
-          # es que el stream se cortó antes de la respuesta final.
           if [ -z "$RESULT" ]; then
-            echo "Error: No se encontró texto en las partes. Respuesta raw:"
+            echo "Log de error (Raw):"
             cat raw_stream.txt
-            RESULT="Error al procesar la respuesta del agente. Revisa los logs."
+            RESULT="Error: El agente no generó texto. Revisa si el PR tiene archivos legibles."
           fi
 
           # 4. EXPORTAR A GITHUB_OUTPUT
