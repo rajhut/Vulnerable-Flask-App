@@ -18,28 +18,41 @@ jobs:
           workload_identity_provider: 'projects/857328543354/locations/global/workloadIdentityPools/github-pool/providers/github-provider'
           service_account: 'github-agent-reviewer@gemini-enterprise-491518.iam.gserviceaccount.com'
 
-      - name: Invoke Agent
+      - name: Invoke AI Agent
         id: agent_call
         run: |
           # 1. Definir el prompt
           PROMPT="revisar el PR #${{ github.event.pull_request.number }} de github.com/${{ github.repository }}"
-          JSON_PAYLOAD=$(jq -n --arg q "$PROMPT" '{"input": $q}')
           
-          # 2. Llamada al API de Agent Engine
-          # Nota: Ajusta la región (us-central1) si tu agente está en otra
-          RESPONSE=$(curl -X POST \
+          # 2. Construir el JSON con la estructura de objeto anidado
+          # user_id: usamos el usuario que disparó el PR
+          # session_id: usamos el ID de ejecución del workflow para que sea único
+          JSON_PAYLOAD=$(jq -n \
+            --arg uid "${{ github.actor }}" \
+            --arg sid "${{ github.run_id }}" \
+            --arg msg "$PROMPT" \
+            '{
+              "input": {
+                "user_id": $uid,
+                "session_id": $sid,
+                "message": $msg
+              }
+            }')
+          
+          # 3. Llamada al API
+          RESPONSE=$(curl -s -X POST \
             -H "Authorization: Bearer $(gcloud auth print-access-token)" \
             -H "Content-Type: application/json" \
             -d "$JSON_PAYLOAD" \
             https://us-central1-aiplatform.googleapis.com/v1/projects/gemini-enterprise-491518/locations/us-central1/reasoningEngines/6857918454985392128:query)
 
-          # 3. Extraer el texto de la respuesta usando jq
           echo "RAW RESPONSE: $RESPONSE"
-          
-          # Normalmente la estructura es .answer
-          RESULT=$(echo $RESPONSE | jq -r '.answer // "El agente no devolvió una respuesta clara."')
 
-          # 4. Guardar en el output de GitHub (Manejo de strings multilínea)
+          # 4. Extraer el resultado
+          # Normalmente la respuesta viene en .output.content o simplemente .output
+          RESULT=$(echo $RESPONSE | jq -r '.output // .answer // "Error: Estructura de respuesta no reconocida."')
+
+          # 5. Guardar para el siguiente paso
           echo "REVIEW_TEXT<<EOF" >> $GITHUB_OUTPUT
           echo "$RESULT" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
