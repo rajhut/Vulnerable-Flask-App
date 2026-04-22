@@ -23,7 +23,7 @@ jobs:
         run: |
           # 1. Definir el prompt
           PROMPT="revisar el PR #${{ github.event.pull_request.number }} de github.com/${{ github.repository }}"
-          JSON_PAYLOAD=$(jq -n --arg q "$PROMPT" '{"query": $q}')
+          JSON_PAYLOAD=$(jq -n --arg q "$PROMPT" '{"input": $q}')
           
           # 2. Llamada al API de Agent Engine
           # Nota: Ajusta la región (us-central1) si tu agente está en otra
