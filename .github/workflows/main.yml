@@ -98,8 +98,9 @@ jobs:
 
       - name: Post Review Comment
         uses: mshick/add-pr-comment@v2
-        if: steps.agent_call.outputs.REVIEW_TEXT != ''
+        # El cambio clave está aquí: 'always()' permite que corra aunque el agente falle
+        if: always() && steps.agent_call.outputs.REVIEW_TEXT != ''
         with:
           message: |
-            ## 🤖 Reseña de IA
+            ## 🤖 Reseña de IA (Vertex AI)
             ${{ steps.agent_call.outputs.REVIEW_TEXT }}
