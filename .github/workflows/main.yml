@@ -18,19 +18,32 @@ jobs:
           service_account: 'github-agent-reviewer@gemini-enterprise-491518.iam.gserviceaccount.com'
 
       - name: Invoke Agent
+        id: agent_call
         run: |
-          # Construimos el comando dinámico
-          # github.event.pull_request.number -> Ejemplo: 1
-          # github.repository -> Ejemplo: owner/repo
-          
+          # 1. Definir el prompt
           PROMPT="revisar el PR #${{ github.event.pull_request.number }} de github.com/${{ github.repository }}"
           
-          echo "Enviando comando: $PROMPT"
-
-          curl -X POST \
+          # 2. Llamada al API de Agent Engine
+          # Nota: Ajusta la región (us-central1) si tu agente está en otra
+          RESPONSE=$(curl -X POST \
             -H "Authorization: Bearer $(gcloud auth print-access-token)" \
             -H "Content-Type: application/json" \
-            -d "{
-              \"query\": \"$PROMPT\"
-            }" \
+            -d "{\"query\": \"$PROMPT\"}" \
             https://us-central1-aiplatform.googleapis.com/v1/projects/${{ secrets.GCP_PROJECT_ID }}/locations/us-central1/reasoningEngines/${{ secrets.AGENT_ID }}:query
+
+          # 3. Extraer el texto de la respuesta usando jq
+          # Normalmente la estructura es .answer
+          RESULT=$(echo $RESPONSE | jq -r '.answer // "El agente no devolvió una respuesta clara."')
+
+          # 4. Guardar en el output de GitHub (Manejo de strings multilínea)
+          echo "REVIEW_TEXT<<EOF" >> $GITHUB_OUTPUT
+          echo "$RESULT" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Post Review Comment
+        uses: mshick/add-pr-comment@v2
+        if: steps.agent_call.outputs.REVIEW_TEXT != ''
+        with:
+          message: |
+            ## 🤖 Reseña de IA
+            ${{ steps.agent_call.outputs.REVIEW_TEXT }}
