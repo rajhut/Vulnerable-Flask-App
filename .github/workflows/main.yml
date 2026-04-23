@@ -91,7 +91,7 @@ jobs:
           # 5. LÓGICA DE BLOQUEO (TRUNCAR PR)
           # Buscamos palabras clave que indiquen fallos graves. 
           # Puedes ajustar esta lista según lo que tu agente suela escribir.
-          if echo "$RESULT" | grep -Ei "BLOCKER|Vulnerabilidad Crítica|Vulnerabilidad de Seguridad|Vulnerabilidades Críticas" > /dev/null; then
+          if echo "$RESULT" | grep -Ei "BLOCKER|Vulnerabilidad Crítica|Vulnerabilidad de Seguridad|Vulnerabilidades Críticas|Crítico|Crítica" > /dev/null; then
             echo "::error::Se detectaron vulnerabilidades críticas. Bloqueando el Pull Request."
             exit 1  # Esto hace que el Job de GitHub falle
           fi
