@@ -20,7 +20,6 @@ import base64
 
 app_port = os.environ.get('APP_PORT', 5050)
 
-
 app = Flask(__name__, template_folder='templates')
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///test.db'
 app.config['SECRET_KEY_HMAC'] = 'secret'
@@ -75,6 +74,15 @@ def setup_users():
             cust.ccn = fake.credit_card_number(card_type=None)
             db.session.add(cust)
             db.session.commit()
+
+#
+def login(user, password):
+    # Mala práctica 1: Contraseña en texto plano hardcodeada
+    admin_pass = "super_secret_123" 
+    # Mala práctica 2: SQL Injection flagrante
+    query = f"SELECT * FROM users WHERE username = '{user}' AND password = '{password}'" 
+    db.execute(query)
+#
 
 def get_exp_date():
     exp_date = datetime.datetime.utcnow() + datetime.timedelta(minutes = 240)
